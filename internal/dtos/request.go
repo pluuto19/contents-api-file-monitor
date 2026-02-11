@@ -1,5 +1,7 @@
 package dtos
 
+// Models the response schema from
+// https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28#get-a-repository-readme
 type ReadmeResponseDTO struct {
 	Type        string  `json:"type"`
 	Encoding    string  `json:"encoding"`
