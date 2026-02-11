@@ -6,19 +6,32 @@ import (
 )
 
 type RuntimeVars struct {
-	fileUrl string
-	reqFreq int // numbers of times to hit the URL in an hour
+	FileUrl string
+	ReqFreq int // numbers of times to hit the URL in an hour
 }
 
 var runtimeConfig *RuntimeVars
 
-func LoadConfig() {
+func GetRuntimeConfig() *RuntimeVars {
 	if runtimeConfig == nil {
-		runtimeConfig = &RuntimeVars{
-			fileUrl: getEnv("FILE_URL", "https://host.com/sample-file-path"),
-			reqFreq: getEnvAsInt("REQ_FREQ", 2),
-		}
+		loadConfig()
 	}
+
+	return runtimeConfig
+}
+
+func loadConfig() {
+	runtimeConfig = &RuntimeVars{
+		FileUrl: getEnv("FILE_URL", "https://host.com/sample-file-path"),
+		ReqFreq: getEnvAsInt("REQ_FREQ", 2),
+	}
+
+	// Make sure that only 60 requests are allowed in an hour, one each minute.
+	if runtimeConfig.ReqFreq > 60 {
+		runtimeConfig.ReqFreq = 60
+	}
+
+	// TODO: Verify URL structure using regex
 }
 
 func getEnv(key, defVal string) string {
