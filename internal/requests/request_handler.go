@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func NewHTTPClient(log *logger.Logger, timeout time.Duration) *http.Client {
+func NewHTTPClient(timeout time.Duration) *http.Client {
 	client := &http.Client{
 		Timeout: timeout,
 	}

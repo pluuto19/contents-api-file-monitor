@@ -24,7 +24,7 @@ func main() {
 	logger.Infof(log, "Configuration loaded")
 
 	logger.Infof(log, "Creating HTTP client")
-	client := requests.NewHTTPClient(log, time.Duration(vars.ClientTimeoutSec)*time.Second)
+	client := requests.NewHTTPClient(time.Duration(vars.ClientTimeoutSec)*time.Second)
 	logger.Info(log, "HTTP client created")
 
 	logger.Infof(log, "Creating Twilio client")
@@ -62,7 +62,7 @@ func startMainLoop(ctx context.Context, client *http.Client, tc *twilio.TwilioCl
 				if body != nil && hash != body.Sha {
 					hash = body.Sha
 
-					err = twilio.SendMessage(tc, ALERT_MESSAGE)
+					err = twilio.SendMessage(log, tc, ALERT_MESSAGE)
 					if err != nil {
 						logger.ErrorWithErr(log, "Error sending whatsapp message", err)
 						continue

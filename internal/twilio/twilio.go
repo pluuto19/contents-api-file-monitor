@@ -2,6 +2,7 @@ package twilio
 
 import (
 	"contents-api-file-monitor/internal/config"
+	"contents-api-file-monitor/internal/logger"
 	"fmt"
 
 	t "github.com/twilio/twilio-go"
@@ -25,11 +26,13 @@ func NewWhatsAppClient(vars *config.RuntimeVars) *TwilioClient {
 	}
 }
 
-func SendMessage(tc *TwilioClient, msg string) error {
+func SendMessage(log *logger.Logger, tc *TwilioClient, msg string) error {
 	if tc == nil {
-		return fmt.Errorf("whatsapp client is nil")
+		logger.Error(log, "Twilio client is nil")
+		return fmt.Errorf("twilio client is nil")
 	}
 	if msg == "" {
+		logger.Error(log, "message is an empty string")
 		return fmt.Errorf("message is an empty string")
 	}
 
@@ -40,6 +43,7 @@ func SendMessage(tc *TwilioClient, msg string) error {
 
 	_, err := tc.client.Api.CreateMessage(p)
 	if err != nil {
+		logger.ErrorWithErr(log, "Error while sending message", err)
 		return err
 	}
 
