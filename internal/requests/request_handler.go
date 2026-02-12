@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
-	"strings"
 	"time"
 )
 
@@ -21,18 +19,18 @@ func NewHTTPClient(timeout time.Duration) *http.Client {
 
 func SendGETRequest(c *http.Client, ctx context.Context, url, currETag string) (int, string, *dtos.ReadmeResponseDTO, error) {
 	if c == nil {
-		return -1, "",  nil, fmt.Errorf("client is nil")
+		return -1, "", nil, fmt.Errorf("client is nil")
 	}
 	if url == "" {
-		return -1, "",  nil, fmt.Errorf("url is an empty string")
+		return -1, "", nil, fmt.Errorf("url is an empty string")
 	}
 	if ctx == nil {
-		return -1, "",  nil, fmt.Errorf("context is nil")
+		return -1, "", nil, fmt.Errorf("context is nil")
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return -1, "",  nil, err
+		return -1, "", nil, err
 	}
 
 	if currETag != "" {
@@ -41,25 +39,24 @@ func SendGETRequest(c *http.Client, ctx context.Context, url, currETag string) (
 
 	resp, err := c.Do(req)
 	if err != nil {
-		return -1, "",  nil, err
+		return -1, "", nil, err
 	}
 	defer resp.Body.Close()
 
+	statusCode := resp.StatusCode
+	eTag := resp.Header.Get("ETag")
+
+	if statusCode == http.StatusNotModified {
+		return statusCode, eTag, nil, nil
+	}
+
 	var res dtos.ReadmeResponseDTO
-	decoder := json.NewDecoder(resp.Body)
-	err = decoder.Decode(&res)
-	if err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		if errors.Is(err, io.EOF) {
-			return -1, "", nil, fmt.Errorf("empty body: %w", err)
+			return -1, "", nil, fmt.Errorf("unexpected empty body for status %d", statusCode)
 		}
 		return -1, "", nil, fmt.Errorf("decoding response: %w", err)
 	}
 
-	eTag := resp.Header.Get("ETag")
-	status, err := strconv.ParseInt(strings.Split(resp.Status, " ")[0], 10, 32)
-	if err != nil {
-		return -1, "",  nil, err
-	}
-
-	return int(status), eTag, &res, nil
+	return statusCode, eTag, &res, nil
 }
