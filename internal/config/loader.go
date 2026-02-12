@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 )
@@ -13,15 +14,15 @@ type RuntimeVars struct {
 
 var runtimeConfig *RuntimeVars
 
-func GetRuntimeConfig() *RuntimeVars {
+func GetRuntimeConfig() (*RuntimeVars, error) {
 	if runtimeConfig == nil {
-		loadConfig()
+		return nil, fmt.Errorf("runtime variables are not initialized")
 	}
 
-	return runtimeConfig
+	return runtimeConfig, nil
 }
 
-func loadConfig() {
+func LoadConfig() {
 	runtimeConfig = &RuntimeVars{
 		FileUrl: getEnv("FILE_URL", "https://host.com/sample-file-path"),
 		ReqFreq: getEnvAsInt("REQ_FREQ", 2),
