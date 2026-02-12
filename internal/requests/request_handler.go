@@ -13,17 +13,23 @@ import (
 	"time"
 )
 
-var c *http.Client
-
-func SetupHTTPClient(timeout time.Duration) {
-	if c == nil {
-		c = &http.Client{
-			Timeout: timeout,
-		}
+func NewHTTPClient(timeout time.Duration) *http.Client {
+	return &http.Client{
+		Timeout: timeout,
 	}
 }
 
-func SendGETRequest(ctx context.Context, url, currETag string) (int, string, *dtos.ReadmeResponseDTO, error) {
+func SendGETRequest(c *http.Client, ctx context.Context, url, currETag string) (int, string, *dtos.ReadmeResponseDTO, error) {
+	if c == nil {
+		return -1, "",  nil, fmt.Errorf("client is nil")
+	}
+	if url == "" {
+		return -1, "",  nil, fmt.Errorf("url is an empty string")
+	}
+	if ctx == nil {
+		return -1, "",  nil, fmt.Errorf("context is nil")
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return -1, "",  nil, err
