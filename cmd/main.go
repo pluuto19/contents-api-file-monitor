@@ -6,7 +6,9 @@ import (
 	"contents-api-file-monitor/internal/requests"
 	"contents-api-file-monitor/internal/twilio"
 	"context"
+	"fmt"
 	"net/http"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -16,6 +18,10 @@ const ALERT_MESSAGE string = "README file changed upstream"
 
 // TODO: handle SIGHUP for reloading env vars live
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	log := logger.NewLogger(nil)
 	logger.Info(log, "Starting file monitor")
 
@@ -24,23 +30,45 @@ func main() {
 	logger.Infof(log, "Configuration loaded")
 
 	logger.Infof(log, "Creating HTTP client")
-	client := requests.NewHTTPClient(time.Duration(vars.ClientTimeoutSec)*time.Second)
+	client := requests.NewHTTPClient(time.Duration(vars.ClientTimeoutSec) * time.Second)
 	logger.Info(log, "HTTP client created")
 
 	logger.Infof(log, "Creating Twilio client")
-	tc := twilio.NewWhatsAppClient(vars)
+	tc := twilio.NewWhatsAppClient(vars.TUsername, vars.TAuthTok, vars.TFrom, vars.TTo, vars.TContentSid)
 	logger.Infof(log, "Twilio client created")
 
 	ctx, stopFunc := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stopFunc()
 
 	loopTicker := time.NewTicker(time.Duration(60/vars.ReqFreq) * time.Minute)
+	defer loopTicker.Stop()
 
-	startMainLoop(ctx, client, tc, loopTicker, vars, log)
+	if err := startMainLoop(ctx, client, tc, loopTicker, vars, log); err != nil {
+		logger.ErrorWithErr(log, "Main loop aborted", err)
+		return 1
+	}
+
 	logger.Info(log, "Application shutting down")
+	return 0
 }
 
-func startMainLoop(ctx context.Context, client *http.Client, tc *twilio.TwilioClient, t *time.Ticker, vars *config.RuntimeVars, log *logger.Logger) {
+func startMainLoop(ctx context.Context, client *http.Client, tc *twilio.TwilioClient, t *time.Ticker, vars *config.RuntimeVars, log *logger.Logger) error {
+	if ctx == nil {
+		return fmt.Errorf("ctx is nil")
+	}
+	if client == nil {
+		return fmt.Errorf("http client is nil")
+	}
+	if tc == nil {
+		return fmt.Errorf("twilio client is nil")
+	}
+	if t == nil {
+		return fmt.Errorf("ticker is nil")
+	}
+	if vars == nil {
+		return fmt.Errorf("runtime vars is nil")
+	}
+
 	var eTag, hash string
 	logger.Info(log, "Main loop initialized")
 
@@ -82,7 +110,8 @@ func startMainLoop(ctx context.Context, client *http.Client, tc *twilio.TwilioCl
 
 		case <-ctx.Done():
 			logger.Info(log, "Context cancelled, stopping main loop")
-			return
+			client.CloseIdleConnections()
+			return nil
 		}
 	}
 }

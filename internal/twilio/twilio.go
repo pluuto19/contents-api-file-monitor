@@ -1,7 +1,6 @@
 package twilio
 
 import (
-	"contents-api-file-monitor/internal/config"
 	"contents-api-file-monitor/internal/logger"
 	"fmt"
 
@@ -10,30 +9,32 @@ import (
 )
 
 type TwilioClient struct {
-	client *t.RestClient
+	client     *t.RestClient
 	from, to   string
 	contentSid string
 }
 
-func NewWhatsAppClient(vars *config.RuntimeVars) *TwilioClient {
+func NewWhatsAppClient(tUsername, tAuthTok, tFrom, tTo, tContentSid string) *TwilioClient {
+	if tUsername == "" || tAuthTok == "" || tFrom == "" || tTo == "" || tContentSid == "" {
+		return nil
+	}
+
 	return &TwilioClient{
 		client: t.NewRestClientWithParams(t.ClientParams{
-			Username: vars.TUsername,
-			Password: vars.TAuthTok,
+			Username: tUsername,
+			Password: tAuthTok,
 		}),
-		from: vars.TFrom,
-		to:   vars.TTo,
-		contentSid: vars.ContentSid,
+		from:       tFrom,
+		to:         tTo,
+		contentSid: tContentSid,
 	}
 }
 
 func SendMessage(log *logger.Logger, tc *TwilioClient, msg string) error {
 	if tc == nil {
-		logger.Error(log, "Twilio client is nil")
 		return fmt.Errorf("twilio client is nil")
 	}
 	if msg == "" {
-		logger.Error(log, "message is an empty string")
 		return fmt.Errorf("message is an empty string")
 	}
 
@@ -45,7 +46,7 @@ func SendMessage(log *logger.Logger, tc *TwilioClient, msg string) error {
 
 	_, err := tc.client.Api.CreateMessage(p)
 	if err != nil {
-		return err
+		return fmt.Errorf("create message: %w", err)
 	}
 
 	return nil

@@ -21,22 +21,18 @@ func NewHTTPClient(timeout time.Duration) *http.Client {
 
 func SendGETRequest(c *http.Client, ctx context.Context, url, currETag string, log *logger.Logger) (int, string, *dtos.ReadmeResponseDTO, error) {
 	if c == nil {
-		logger.Error(log, "Validation failed: HTTP client is nil")
 		return -1, "", nil, fmt.Errorf("client is nil")
 	}
 	if url == "" {
-		logger.Error(log, "Validation failed: URL is empty")
 		return -1, "", nil, fmt.Errorf("url is an empty string")
 	}
 	if ctx == nil {
-		logger.Error(log, "Validation failed: context is nil")
 		return -1, "", nil, fmt.Errorf("context is nil")
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		logger.ErrorWithErr(log, "Failed to create HTTP request", err)
-		return -1, "", nil, err
+		return -1, "", nil, fmt.Errorf("create request failed: %w", err)
 	}
 
 	if currETag != "" {
@@ -46,8 +42,7 @@ func SendGETRequest(c *http.Client, ctx context.Context, url, currETag string, l
 	logger.Info(log, "Sending HTTP request")
 	resp, err := c.Do(req)
 	if err != nil {
-		logger.ErrorWithErr(log, "HTTP request failed", err)
-		return -1, "", nil, err
+		return -1, "", nil, fmt.Errorf("http request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -63,12 +58,10 @@ func SendGETRequest(c *http.Client, ctx context.Context, url, currETag string, l
 	var res dtos.ReadmeResponseDTO
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		if errors.Is(err, io.EOF) {
-			logger.Errorf(log, "Unexpected empty response body for status code %d", statusCode)
 			return -1, "", nil, fmt.Errorf("unexpected empty body for status %d", statusCode)
 		}
 
-		logger.ErrorWithErr(log, "Failed to decode JSON response", err)
-		return -1, "", nil, fmt.Errorf("decoding response: %w", err)
+		return -1, "", nil, fmt.Errorf("decode response failed: %w", err)
 	}
 
 	return statusCode, eTag, &res, nil
