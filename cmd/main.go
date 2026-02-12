@@ -4,12 +4,15 @@ import (
 	"contents-api-file-monitor/internal/config"
 	"contents-api-file-monitor/internal/logger"
 	"contents-api-file-monitor/internal/requests"
+	"contents-api-file-monitor/internal/twilio"
 	"context"
 	"net/http"
 	"os/signal"
 	"syscall"
 	"time"
 )
+
+const ALERT_MESSAGE string = "README file changed upstream"
 
 // TODO: handle SIGHUP for reloading env vars live
 func main() {
@@ -24,16 +27,20 @@ func main() {
 	client := requests.NewHTTPClient(log, time.Duration(vars.ClientTimeoutSec)*time.Second)
 	logger.Info(log, "HTTP client created")
 
+	logger.Infof(log, "Creating Twilio client")
+	tc := twilio.NewWhatsAppClient(vars)
+	logger.Infof(log, "Twilio client created")
+
 	ctx, stopFunc := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stopFunc()
 
 	loopTicker := time.NewTicker(time.Duration(60/vars.ReqFreq) * time.Minute)
 
-	startMainLoop(client, loopTicker, ctx, vars, log)
+	startMainLoop(ctx, client, tc, loopTicker, vars, log)
 	logger.Info(log, "Application shutting down")
 }
 
-func startMainLoop(client *http.Client, t *time.Ticker, ctx context.Context, vars *config.RuntimeVars, log *logger.Logger) {
+func startMainLoop(ctx context.Context, client *http.Client, tc *twilio.TwilioClient, t *time.Ticker, vars *config.RuntimeVars, log *logger.Logger) {
 	var eTag, hash string
 	logger.Info(log, "Main loop initialized")
 
@@ -51,15 +58,23 @@ func startMainLoop(client *http.Client, t *time.Ticker, ctx context.Context, var
 			case http.StatusOK:
 				logger.Info(log, "File content has changed upstream (Status 200)")
 				eTag = newETag
+
 				if body != nil && hash != body.Sha {
 					hash = body.Sha
-					logger.Info(log, "Triggering Twilio notification")
-					// TODO: Call Twilio
+
+					err = twilio.SendMessage(tc, ALERT_MESSAGE)
+					if err != nil {
+						logger.ErrorWithErr(log, "Error sending whatsapp message", err)
+						continue
+					}
+
 				} else if body != nil {
 					logger.Infof(log, "Hash unchanged: %s", hash)
 				}
+
 			case http.StatusNotModified:
 				logger.Info(log, "File content unchanged (Status 304)")
+
 			default:
 				logger.Errorf(log, "Unexpected status code received: %d", status)
 				continue
