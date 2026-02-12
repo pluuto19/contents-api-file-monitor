@@ -36,9 +36,13 @@ func LoadRuntimeConfig(log *logger.Logger) *RuntimeVars {
 	if cfg.ReqFreq > 60 {
 		cfg.ReqFreq = 60
 	}
+	if cfg.ReqFreq <= 0 {
+		cfg.ReqFreq = 4 // one every 15 minute
+	}
 
-	// TODO: Verify URL structure using regex
-	// TODO: Validate env values
+	if cfg.ClientTimeoutSec <= 0 {
+		cfg.ClientTimeoutSec = 30 // a default value of 30 seconds
+	}
 
 	return cfg
 }
