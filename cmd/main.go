@@ -18,7 +18,7 @@ func main() {
 	ctx, stopFunc := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stopFunc()
 
-	loopTicker := time.NewTicker(time.Duration(vars.ReqFreq/60) * time.Minute)
+	loopTicker := time.NewTicker(time.Duration(60/vars.ReqFreq) * time.Minute)
 
 	go startMainLoop(client, loopTicker, ctx, vars)
 }
