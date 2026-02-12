@@ -13,14 +13,14 @@ import (
 // TODO: handle SIGHUP for reloading env vars live
 func main() {
 	vars := config.LoadRuntimeConfig()
-	client := requests.NewHTTPClient(time.Duration(vars.ClientTimeoutSec))
+	client := requests.NewHTTPClient(time.Duration(vars.ClientTimeoutSec) * time.Second)
 
 	ctx, stopFunc := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stopFunc()
 
 	loopTicker := time.NewTicker(time.Duration(60/vars.ReqFreq) * time.Minute)
 
-	go startMainLoop(client, loopTicker, ctx, vars)
+	startMainLoop(client, loopTicker, ctx, vars)
 }
 
 func startMainLoop(client *http.Client, t *time.Ticker, ctx context.Context, vars *config.RuntimeVars) {
@@ -42,7 +42,6 @@ func startMainLoop(client *http.Client, t *time.Ticker, ctx context.Context, var
 				eTag = newETag
 				if hash != body.Sha {
 					hash = body.Sha
-					// TODO: Alert using Twilio
 				}
 			}
 
