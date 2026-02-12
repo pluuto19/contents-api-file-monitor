@@ -2,6 +2,7 @@ package main
 
 import (
 	"contents-api-file-monitor/internal/config"
+	"contents-api-file-monitor/internal/logger"
 	"contents-api-file-monitor/internal/requests"
 	"context"
 	"net/http"
@@ -12,40 +13,60 @@ import (
 
 // TODO: handle SIGHUP for reloading env vars live
 func main() {
-	vars := config.LoadRuntimeConfig()
-	client := requests.NewHTTPClient(time.Duration(vars.ClientTimeoutSec) * time.Second)
+	log := logger.NewLogger(nil)
+	logger.Info(log, "Starting file monitor")
+
+	logger.Info(log, "Loading runtime configuration")
+	vars := config.LoadRuntimeConfig(log)
+	logger.Infof(log, "Configuration loaded")
+
+	logger.Infof(log, "Creating HTTP client")
+	client := requests.NewHTTPClient(log, time.Duration(vars.ClientTimeoutSec)*time.Second)
+	logger.Info(log, "HTTP client created")
 
 	ctx, stopFunc := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stopFunc()
 
 	loopTicker := time.NewTicker(time.Duration(60/vars.ReqFreq) * time.Minute)
 
-	startMainLoop(client, loopTicker, ctx, vars)
+	startMainLoop(client, loopTicker, ctx, vars, log)
+	logger.Info(log, "Application shutting down")
 }
 
-func startMainLoop(client *http.Client, t *time.Ticker, ctx context.Context, vars *config.RuntimeVars) {
+func startMainLoop(client *http.Client, t *time.Ticker, ctx context.Context, vars *config.RuntimeVars, log *logger.Logger) {
 	var eTag, hash string
+	logger.Info(log, "Main loop initialized")
 
 	for {
 		select {
 		case <-t.C:
-			status, newETag, body, err := requests.SendGETRequest(client, ctx, vars.FileUrl, eTag)
+			logger.Infof(log, "Tick received, sending GET request")
+			status, newETag, body, err := requests.SendGETRequest(client, ctx, vars.FileUrl, eTag, log)
 			if err != nil {
-				// TODO: Log the error and continue
-			}
-			if status != http.StatusNotModified && status != http.StatusOK {
-				// TODO: Log the error and continue
+				logger.ErrorWithErr(log, "Failed to send GET request", err)
+				continue
 			}
 
-			if status == http.StatusOK {
-				// Something changed upstream
+			switch status {
+			case http.StatusOK:
+				logger.Info(log, "File content has changed upstream (Status 200)")
 				eTag = newETag
-				if hash != body.Sha {
+				if body != nil && hash != body.Sha {
 					hash = body.Sha
+					logger.Info(log, "Triggering Twilio notification")
+					// TODO: Call Twilio
+				} else if body != nil {
+					logger.Infof(log, "Hash unchanged: %s", hash)
 				}
+			case http.StatusNotModified:
+				logger.Info(log, "File content unchanged (Status 304)")
+			default:
+				logger.Errorf(log, "Unexpected status code received: %d", status)
+				continue
 			}
 
 		case <-ctx.Done():
+			logger.Info(log, "Context cancelled, stopping main loop")
 			return
 		}
 	}

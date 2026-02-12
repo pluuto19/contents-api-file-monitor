@@ -2,6 +2,7 @@ package requests
 
 import (
 	"contents-api-file-monitor/internal/dtos"
+	"contents-api-file-monitor/internal/logger"
 	"context"
 	"encoding/json"
 	"errors"
@@ -11,25 +12,30 @@ import (
 	"time"
 )
 
-func NewHTTPClient(timeout time.Duration) *http.Client {
-	return &http.Client{
+func NewHTTPClient(log *logger.Logger, timeout time.Duration) *http.Client {
+	client := &http.Client{
 		Timeout: timeout,
 	}
+	return client
 }
 
-func SendGETRequest(c *http.Client, ctx context.Context, url, currETag string) (int, string, *dtos.ReadmeResponseDTO, error) {
+func SendGETRequest(c *http.Client, ctx context.Context, url, currETag string, log *logger.Logger) (int, string, *dtos.ReadmeResponseDTO, error) {
 	if c == nil {
+		logger.Error(log, "Validation failed: HTTP client is nil")
 		return -1, "", nil, fmt.Errorf("client is nil")
 	}
 	if url == "" {
+		logger.Error(log, "Validation failed: URL is empty")
 		return -1, "", nil, fmt.Errorf("url is an empty string")
 	}
 	if ctx == nil {
+		logger.Error(log, "Validation failed: context is nil")
 		return -1, "", nil, fmt.Errorf("context is nil")
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
+		logger.ErrorWithErr(log, "Failed to create HTTP request", err)
 		return -1, "", nil, err
 	}
 
@@ -37,24 +43,31 @@ func SendGETRequest(c *http.Client, ctx context.Context, url, currETag string) (
 		req.Header.Set("If-None-Match", currETag)
 	}
 
+	logger.Info(log, "Sending HTTP request")
 	resp, err := c.Do(req)
 	if err != nil {
+		logger.ErrorWithErr(log, "HTTP request failed", err)
 		return -1, "", nil, err
 	}
 	defer resp.Body.Close()
 
 	statusCode := resp.StatusCode
 	eTag := resp.Header.Get("ETag")
+	logger.Infof(log, "Received response: Status: %d, ETag: %s", statusCode, eTag)
 
 	if statusCode == http.StatusNotModified {
+		logger.Info(log, "Content not modified (304), returning early")
 		return statusCode, eTag, nil, nil
 	}
 
 	var res dtos.ReadmeResponseDTO
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		if errors.Is(err, io.EOF) {
+			logger.Errorf(log, "Unexpected empty response body for status code %d", statusCode)
 			return -1, "", nil, fmt.Errorf("unexpected empty body for status %d", statusCode)
 		}
+
+		logger.ErrorWithErr(log, "Failed to decode JSON response", err)
 		return -1, "", nil, fmt.Errorf("decoding response: %w", err)
 	}
 
