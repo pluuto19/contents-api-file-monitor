@@ -11,8 +11,8 @@ import (
 
 type TwilioClient struct {
 	client *t.RestClient
-	from   string
-	to     string
+	from, to   string
+	contentSid string
 }
 
 func NewWhatsAppClient(vars *config.RuntimeVars) *TwilioClient {
@@ -23,6 +23,7 @@ func NewWhatsAppClient(vars *config.RuntimeVars) *TwilioClient {
 		}),
 		from: vars.TFrom,
 		to:   vars.TTo,
+		contentSid: vars.ContentSid,
 	}
 }
 
@@ -39,11 +40,11 @@ func SendMessage(log *logger.Logger, tc *TwilioClient, msg string) error {
 	p := &api.CreateMessageParams{}
 	p.SetTo(tc.to)
 	p.SetFrom(tc.from)
-	p.SetBody(msg)
+	p.SetContentSid(tc.contentSid)
+	p.SetContentVariables(`{"1":"` + msg + `"}`)
 
 	_, err := tc.client.Api.CreateMessage(p)
 	if err != nil {
-		logger.ErrorWithErr(log, "Error while sending message", err)
 		return err
 	}
 

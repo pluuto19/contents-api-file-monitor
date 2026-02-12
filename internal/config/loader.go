@@ -14,6 +14,7 @@ type RuntimeVars struct {
 	TAuthTok         string
 	TFrom			 string
 	TTo      		 string
+	ContentSid       string
 }
 
 func LoadRuntimeConfig(log *logger.Logger) *RuntimeVars {
@@ -25,10 +26,11 @@ func LoadRuntimeConfig(log *logger.Logger) *RuntimeVars {
 		TAuthTok:         getEnv(log, "TWILIO_AUTH_TOKEN", "some-token"),
 		TFrom:            getEnv(log, "TWILIO_FROM_NUMBER", "+12312312312"),
 		TTo: 			  getEnv(log, "TWILIO_TO_NUMBER", "+921231231231"),
+		ContentSid:       getEnv(log, "TWILIO_CONTENT_SID", "sample-sid"),
 	}
 
-	logger.Infof(log, "Initial config loaded: FileUrl: %t, ReqFreq: %t, ClientTimeoutSec: %t, TUsername: %t, TAuthTok: %t, TFrom: %t, TTo: %t",
-				cfg.FileUrl != "", cfg.ReqFreq > 0, cfg.ClientTimeoutSec > 0, cfg.TUsername != "", cfg.TAuthTok != "", cfg.TFrom != "", cfg.TTo != "")
+	logger.Infof(log, "Initial config loaded: FileUrl: %t, ReqFreq: %t, ClientTimeoutSec: %t, TUsername: %t, TAuthTok: %t, TFrom: %t, TTo: %t, ContentSid: %t",
+				cfg.FileUrl != "", cfg.ReqFreq > 0, cfg.ClientTimeoutSec > 0, cfg.TUsername != "", cfg.TAuthTok != "", cfg.TFrom != "", cfg.TTo != "", cfg.ContentSid != "")
 
 	// Make sure that only 60 requests are allowed in an hour, one each minute.
 	if cfg.ReqFreq > 60 {
