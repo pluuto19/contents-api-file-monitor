@@ -27,14 +27,26 @@ func run() int {
 
 	logger.Info(log, "Loading runtime configuration")
 	vars := config.LoadRuntimeConfig(log)
+	if vars == nil {
+		logger.Error(log, "Runtime configuration is nil")
+		return 1
+	}
 	logger.Infof(log, "Configuration loaded")
 
 	logger.Infof(log, "Creating HTTP client")
 	client := requests.NewHTTPClient(time.Duration(vars.ClientTimeoutSec) * time.Second)
+	if client == nil {
+		logger.Error(log, "HTTP client is nil")
+		return 1
+	}
 	logger.Info(log, "HTTP client created")
 
 	logger.Infof(log, "Creating Twilio client")
 	tc := twilio.NewWhatsAppClient(vars.TUsername, vars.TAuthTok, vars.TFrom, vars.TTo, vars.TContentSid)
+	if tc == nil {
+		logger.Error(log, "Twilio client is nil")
+		return 1
+	}
 	logger.Infof(log, "Twilio client created")
 
 	ctx, stopFunc := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
